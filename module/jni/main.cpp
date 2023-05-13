@@ -172,7 +172,7 @@ private:
 
         vector<char> content;
 
-        auto size = receiveFile(fd, content);
+        auto size = receiveConfig(fd, content);
         auto configs = parseConfig(content, packageName);
 
         LOGD("Loaded module payload: %d bytes", size);
@@ -182,7 +182,7 @@ private:
         return configs;
     }
 
-    static int receiveFile(int remote_fd, vector<char> &buf) {
+    static int receiveConfig(int remote_fd, vector<char> &buf) {
         off_t size;
         int ret = read(remote_fd, &size, sizeof(size));
         if (ret < 0) {
@@ -200,6 +200,11 @@ private:
                 return -1;
             }
             bytesReceived += ret;
+        }
+
+        // Ensure the last byte is '\n'
+        if (buf[buf.size() - 1] != '\n') {
+            buf.push_back('\n');
         }
         return bytesReceived;
     }
