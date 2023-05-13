@@ -14,42 +14,20 @@
 
 #include <cstdlib>
 #include <unistd.h>
+#include <string>
 #include <fcntl.h>
+#include <regex>
 
+#include "zygisk.hpp"
 #include "logging.h"
 #include "server.h"
-#include "zygisk.hpp"
-#include <string>
+#include "hook.h"
 
 using zygisk::Api;
 using zygisk::AppSpecializeArgs;
 using zygisk::ServerSpecializeArgs;
 
 using namespace std;
-
-static jstring (*orig_native_get)(JNIEnv *env, jclass clazz, jstring keyJ, jstring defJ);
-
-static jstring my_native_get(JNIEnv *env, jclass clazz, jstring keyJ, jstring defJ) {
-    const char *key = env->GetStringUTFChars(keyJ, nullptr);
-    const char *def = env->GetStringUTFChars(defJ, nullptr);
-
-    jstring hooked_result = nullptr;
-
-    if (strcmp(key, "ro.build.version.emui") == 0) {
-        hooked_result = env->NewStringUTF("EmotionUI_8.0.0");
-    } else if (strcmp(key, "ro.build.hw_emui_api_level") == 0) {
-        hooked_result = env->NewStringUTF("21");
-    }
-
-    env->ReleaseStringUTFChars(keyJ, key);
-    env->ReleaseStringUTFChars(defJ, def);
-
-    if (hooked_result != nullptr) {
-        return hooked_result;
-    } else {
-        return orig_native_get(env, clazz, keyJ, defJ);
-    }
-}
 
 class HmsPushZygisk : public zygisk::ModuleBase {
 public:
@@ -65,97 +43,59 @@ public:
         if (nice_name == nullptr || app_data_dir == nullptr) {
             return;
         }
+        string package_name = parsePackageName(app_data_dir);
 
-        char *package_name = parsePackageName(app_data_dir);
+        if (package_name.empty()) return;
 
-        LOGD("packageName = [%s], process = [%s]\n", package_name, nice_name);
+        LOGD("preAppSpecialize, packageName = %s, process = %s\n", package_name.c_str(), nice_name);
 
-        string process(nice_name);
-        string packageName(package_name);
-
-        preSpecialize(package_name, process);
+        preSpecialize(package_name, string(nice_name));
 
         env->ReleaseStringUTFChars(args->nice_name, nice_name);
         env->ReleaseStringUTFChars(args->app_data_dir, app_data_dir);
-        delete package_name;
     }
 
 private:
     Api *api;
     JNIEnv *env;
 
-    static char *parsePackageName(const char *app_data_dir) {
+    static string parsePackageName(const char *app_data_dir) {
         if (*app_data_dir) {
-            char *package_name = new char[256];
+            std::cmatch match;
             // /data/user/<user_id>/<package>
-            if (sscanf(app_data_dir, "/data/%*[^/]/%*[^/]/%s", package_name) == 1) {
-                return package_name;
+            if (std::regex_match(app_data_dir, match, regex("/data/[^/]+/[^/]+/(\\S+)"))) {
+                return match[1].str();
             }
 
             // /mnt/expand/<id>/user/<user_id>/<package>
-            if (sscanf(app_data_dir, "/mnt/expand/%*[^/]/%*[^/]/%*[^/]/%s", package_name) == 1) {
-                return package_name;
+            if (std::regex_match(app_data_dir, match, regex("/mnt/expand/[^/]+/[^/]+/[^/]+/(\\S+)"))) {
+                return match[1].str();
             }
 
             // /data/data/<package>
-            if (sscanf(app_data_dir, "/data/%*[^/]/%s", package_name) == 1) {
-                return package_name;
+            if (std::regex_match(app_data_dir, match, regex("/data/[^/]+/(\\S+)"))) {
+                return match[1].str();
             }
         }
-        return nullptr;
-    }
-
-    void hookSystemProperties() {
-        LOGD("hook SystemProperties\n");
-
-        JNINativeMethod targetHookMethods[] = {
-                {"native_get", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
-                 (void *) my_native_get},
-        };
-
-        api->hookJniNativeMethods(env, "android/os/SystemProperties", targetHookMethods, 1);
-
-        *(void **) &orig_native_get = targetHookMethods[0].fnPtr;
-
-        LOGD("hook SystemProperties done: %p\n", orig_native_get);
-    }
-
-    void hookBuild() {
-        LOGD("hook Build\n");
-        jclass build_class = env->FindClass("android/os/Build");
-        jstring new_brand = env->NewStringUTF("Huawei");
-        jstring new_manufacturer = env->NewStringUTF("HUAWEI");
-
-        jfieldID brand_id = env->GetStaticFieldID(build_class, "BRAND", "Ljava/lang/String;");
-        if (brand_id != nullptr) {
-            env->SetStaticObjectField(build_class, brand_id, new_brand);
-        }
-
-        jfieldID manufacturer_id = env->GetStaticFieldID(build_class, "MANUFACTURER", "Ljava/lang/String;");
-        if (manufacturer_id != nullptr) {
-            env->SetStaticObjectField(build_class, manufacturer_id, new_manufacturer);
-        }
-
-        env->DeleteLocalRef(new_brand);
-        env->DeleteLocalRef(new_manufacturer);
-
-        LOGD("hook Build done");
+        return "";
     }
 
     void preSpecialize(const string &packageName, const string &process) {
-        auto list = requestRemoteConfig(packageName);
+        vector<string> processList = requestRemoteConfig(packageName);
+        if (!processList.empty()) {
+            bool shouldHook = false;
+            for (const auto &item: processList) {
+                if (item.empty() || item == process) {
+                    shouldHook = true;
+                    break;
+                }
+            }
 
-        bool shouldHook = false;
-        for (const auto &item: list) {
-            shouldHook = item.empty() || item == process;
-            if (shouldHook)break;
-        }
-
-        if (shouldHook) {
-            LOGI("hook package = [%s], process = [%s]\n", packageName.c_str(), process.c_str());
-            hookBuild();
-            hookSystemProperties();
-            return;
+            if (shouldHook) {
+                LOGI("hook package = [%s], process = [%s]\n", packageName.c_str(), process.c_str());
+                Hook(api, env).hook();
+                return;
+            }
         }
 
         // Since we do not hook any functions, we should let Zygisk dlclose ourselves
@@ -168,14 +108,14 @@ private:
      * @return list of processes to hook
      */
     vector<string> requestRemoteConfig(const string &packageName) {
+        LOGD("requestRemoteConfig for %s", packageName.c_str());
         auto fd = api->connectCompanion();
-
+        LOGD("connect to companion fd = %d", fd);
         vector<char> content;
 
         auto size = receiveConfig(fd, content);
         auto configs = parseConfig(content, packageName);
-
-        LOGD("Loaded module payload: %d bytes", size);
+        LOGD("Loaded module payload: %d bytes, config size:%lu ", size, configs.size());
 
         close(fd);
 
@@ -183,8 +123,14 @@ private:
     }
 
     static int receiveConfig(int remote_fd, vector<char> &buf) {
+        LOGD("start receiving config");
+
         off_t size;
         int ret = read(remote_fd, &size, sizeof(size));
+        if (ret == 0) {
+            LOGD("receive empty config");
+            return 0;
+        }
         if (ret < 0) {
             LOGE("Failed to read size");
             return -1;
@@ -203,7 +149,7 @@ private:
         }
 
         // Ensure the last byte is '\n'
-        if (buf[buf.size() - 1] != '\n') {
+        if (!buf.empty() && buf[buf.size() - 1] != '\n') {
             buf.push_back('\n');
         }
         return bytesReceived;
@@ -211,6 +157,9 @@ private:
 
     static vector<string> parseConfig(const vector<char> &content, const string &packageName) {
         vector<string> result;
+
+        if (content.empty()) return result;
+
         string line;
         for (char c: content) {
             if (c == '\n') {

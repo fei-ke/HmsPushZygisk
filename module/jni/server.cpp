@@ -13,13 +13,13 @@ static constexpr auto CONFIG_PATH = "/data/misc/hmspush/app.conf";
 off_t sendFile(int remote_fd, const string &path) {
     auto in_fd = open(path.c_str(), O_RDONLY);
     if (in_fd < 0) {
-        LOGE("Failed to open file %s: %d (%s)", path.c_str(), errno, strerror(errno));
+        LOGD("Failed to open file %s: %d (%s)", path.c_str(), errno, strerror(errno));
         return -1;
     }
 
     auto size = lseek(in_fd, 0, SEEK_END);
     if (size < 0) {
-        LOGI("Failed to get file size");
+        LOGE("Failed to get file size");
         close(in_fd);
         return -1;
     }
