@@ -209,7 +209,7 @@ private:
         string line;
         for (char c: content) {
             if (c == '\n') {
-                if (!line.empty()) {
+                if (!line.empty() || line[0] != '#') {
                     size_t delimiterPos = line.find('|');
                     bool found = delimiterPos != string::npos;
                     auto pkg = line.substr(0, found ? delimiterPos : line.size());
@@ -220,8 +220,8 @@ private:
                             result.push_back("");
                         }
                     }
-                    line.clear();
                 }
+                line.clear();
             } else {
                 line.push_back(c);
             }
