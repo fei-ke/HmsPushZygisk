@@ -16,5 +16,5 @@ name=`grep '^id=' module.prop | cut -d= -f2`
 rm -rf ../build
 mkdir -p ../build
 
-zip -r9 ../build/$name-$version.zip .
+zip -r9 ../build/hmspush-zygisk-$version.zip .
 popd

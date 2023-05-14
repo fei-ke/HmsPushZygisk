@@ -1,5 +1,5 @@
-id=hmspush-zygisk
-name=HMSPush Zygisk
+id=zygisk_hmspush
+name=Zygisk - HMSPush
 version=v0.1
 versionCode=1
 author=Yufz
