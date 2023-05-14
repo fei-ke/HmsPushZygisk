@@ -16,7 +16,6 @@
 #include <unistd.h>
 #include <string>
 #include <fcntl.h>
-#include <regex>
 
 #include "zygisk.hpp"
 #include "logging.h"
@@ -61,20 +60,20 @@ private:
 
     static string parsePackageName(const char *app_data_dir) {
         if (*app_data_dir) {
-            std::cmatch match;
+            char package_name[256] = {0};
             // /data/user/<user_id>/<package>
-            if (std::regex_match(app_data_dir, match, regex("/data/[^/]+/[^/]+/(\\S+)"))) {
-                return match[1].str();
+            if (sscanf(app_data_dir, "/data/%*[^/]/%*[^/]/%s", package_name) == 1) {
+                return package_name;
             }
 
             // /mnt/expand/<id>/user/<user_id>/<package>
-            if (std::regex_match(app_data_dir, match, regex("/mnt/expand/[^/]+/[^/]+/[^/]+/(\\S+)"))) {
-                return match[1].str();
+            if (sscanf(app_data_dir, "/mnt/expand/%*[^/]/%*[^/]/%*[^/]/%s", package_name) == 1) {
+                return package_name;
             }
 
             // /data/data/<package>
-            if (std::regex_match(app_data_dir, match, regex("/data/[^/]+/(\\S+)"))) {
-                return match[1].str();
+            if (sscanf(app_data_dir, "/data/%*[^/]/%s", package_name) == 1) {
+                return package_name;
             }
         }
         return "";
