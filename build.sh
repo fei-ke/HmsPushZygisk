@@ -1,4 +1,7 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
 ndk-build -C module || exit 1
 
 mkdir -p magisk/zygisk
