@@ -54,6 +54,11 @@ public:
         env->ReleaseStringUTFChars(args->app_data_dir, app_data_dir);
     }
 
+    void preServerSpecialize(zygisk::ServerSpecializeArgs *args) override {
+        // Never tamper with system_server
+        api->setOption(zygisk::DLCLOSE_MODULE_LIBRARY);
+    }
+
 private:
     Api *api;
     JNIEnv *env;
@@ -91,6 +96,9 @@ private:
             }
 
             if (shouldHook) {
+                // Force DenyList unmounting for all hooked processes
+                api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
+
                 LOGI("hook package = [%s], process = [%s]\n", packageName.c_str(), process.c_str());
                 Hook(api, env).hook();
                 return;
