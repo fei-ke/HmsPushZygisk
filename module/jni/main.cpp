@@ -21,6 +21,7 @@
 #include "logging.h"
 #include "server.h"
 #include "hook.h"
+#include "util.h"
 
 using zygisk::Api;
 using zygisk::AppSpecializeArgs;
@@ -36,22 +37,20 @@ public:
     }
 
     void preAppSpecialize(AppSpecializeArgs *args) override {
-        const char *nice_name = env->GetStringUTFChars(args->nice_name, nullptr);
-        const char *app_data_dir = env->GetStringUTFChars(args->app_data_dir, nullptr);
+        string process_name = jstringToStdString(env, args->nice_name);
+        string app_data_dir = jstringToStdString(env, args->app_data_dir);
 
-        if (nice_name == nullptr || app_data_dir == nullptr) {
+        if (process_name.empty() || app_data_dir.empty()) {
+            // Since we do not hook any functions, we should let Zygisk dlclose ourselves
+            api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
             return;
         }
-        string package_name = parsePackageName(app_data_dir);
 
-        if (package_name.empty()) return;
+        string package_name = parsePackageName(app_data_dir.c_str());
 
-        LOGD("preAppSpecialize, packageName = %s, process = %s\n", package_name.c_str(), nice_name);
+        LOGD("preAppSpecialize, packageName = %s, process = %s\n", package_name.c_str(), process_name.c_str());
 
-        preSpecialize(package_name, string(nice_name));
-
-        env->ReleaseStringUTFChars(args->nice_name, nice_name);
-        env->ReleaseStringUTFChars(args->app_data_dir, app_data_dir);
+        preSpecialize(package_name, process_name);
     }
 
     void preServerSpecialize(zygisk::ServerSpecializeArgs *args) override {
@@ -64,7 +63,7 @@ private:
     JNIEnv *env;
 
     static string parsePackageName(const char *app_data_dir) {
-        if (*app_data_dir) {
+        if (app_data_dir && *app_data_dir) {
             char package_name[256] = {0};
             // /data/user/<user_id>/<package>
             if (sscanf(app_data_dir, "/data/%*[^/]/%*[^/]/%s", package_name) == 1) {
