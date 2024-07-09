@@ -1,6 +1,6 @@
 id=zygisk_hmspush
 name=Zygisk - HMSPush
-version=v0.2
-versionCode=2
+version=v0.3
+versionCode=3
 author=Yufz
 description=为应用伪装华为设备，以便使用 HMSPush
