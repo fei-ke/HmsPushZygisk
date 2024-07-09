@@ -95,9 +95,6 @@ private:
             }
 
             if (shouldHook) {
-                // Force DenyList unmounting for all hooked processes
-                api->setOption(zygisk::FORCE_DENYLIST_UNMOUNT);
-
                 LOGI("hook package = [%s], process = [%s]\n", packageName.c_str(), process.c_str());
                 Hook(api, env).hook();
                 return;
