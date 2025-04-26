@@ -6,7 +6,7 @@
 前往 [Release](https://github.com/fei-ke/HmsPushZygisk/releases) 下载
 
 ### 配置
-手动编辑 `/data/misc/hms/app.conf` 文件，或者使用 [HMSPush](https://github.com/fei-ke/HmsPushZygisk.git) 应用进行配置
+手动编辑 `/data/misc/hmspush/app.conf` 文件，或者使用 [HMSPush](https://github.com/fei-ke/HmsPushZygisk.git) 应用进行配置
 
 配置示例：
 ```
