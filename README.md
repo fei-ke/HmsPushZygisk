@@ -18,6 +18,12 @@ com.example.app
 
 #对该应用指定进程进行伪装，格式：包名|进程名
 com.example.app|com.example.app:push
+
+#对该应用所有进程进行伪装，但跳过 Build 属性伪装
+!com.example.app
+
+#对该应用指定进程进行伪装，但跳过 Build 属性伪装，格式：!包名|进程名
+!com.example.app|com.example.app:push
 ```
 
 ### 开发、构建

@@ -60,7 +60,12 @@ unsafe extern "C" fn my_native_get(
 }
 
 /// Set android.os.Build properties from config.
-pub fn hook_build(env: &mut JNIEnv<'_>, props: &[(&str, &str)]) {
+pub fn hook_build(env: &mut JNIEnv<'_>, props: &[(&str, &str)], skip_build: bool) {
+    if skip_build {
+        debug!("skip hook Build");
+        return;
+    }
+
     debug!("hook Build");
 
     let build_class = match env.find_class("android/os/Build") {
