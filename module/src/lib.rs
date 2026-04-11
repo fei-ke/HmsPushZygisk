@@ -12,9 +12,7 @@ use zygisk_api::{
 use zygisk_api::api::v4::ZygiskOption;
 
 pub mod config;
-use config::{
-    HMSPUSH_PACKAGE_NAME, SPOOF_BUILD_PROPERTIES, SPOOF_HMSPUSH_PROPERTIES, SPOOF_SYSTEM_PROPERTIES,
-};
+use config::HMSPUSH_PACKAGE_NAME;
 mod hook;
 mod server;
 
@@ -88,21 +86,21 @@ fn pre_specialize(
     package_name: &str,
     process: &str,
 ) {
-    if package_name == HMSPUSH_PACKAGE_NAME {
-        info!(
-            "hmspush package detected [{}]: inject spoofed properties",
-            package_name
-        );
-        hook::hook_system_properties(&mut api, env, SPOOF_HMSPUSH_PROPERTIES);
-        return;
-    }
-
-    let should_hook = query_should_hook(&mut api, package_name, process);
+    let should_hook = package_name == HMSPUSH_PACKAGE_NAME
+        || query_should_hook(&mut api, package_name, process);
 
     if should_hook {
         info!("hook package = [{}], process = [{}]", package_name, process);
-        hook::hook_build(&mut env, SPOOF_BUILD_PROPERTIES);
-        hook::hook_system_properties(&mut api, env, SPOOF_SYSTEM_PROPERTIES);
+
+        let pkg_props = config::get_properties_for_package(package_name);
+
+        if !pkg_props.build_properties.is_empty() {
+            hook::hook_build(&mut env, pkg_props.build_properties);
+        }
+        
+        if !pkg_props.system_properties.is_empty() {
+            hook::hook_system_properties(&mut api, env, pkg_props.system_properties);
+        }
     } else {
         api.set_option(ZygiskOption::DlCloseModuleLibrary);
     }
