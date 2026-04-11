@@ -39,6 +39,11 @@ pub const PACKAGE_PROPS: &[PackageProps] = &[
         system_properties: &[("ro.build.version.emui", "EmotionUI_8.0.0")],
         build_properties: &[],
     },
+    PackageProps {
+        package_name: "com.tencent.mobileqq",
+        system_properties: &[],
+        build_properties: &[("MANUFACTURER", "HUAWEI")],
+    }
 ];
 
 #[inline]
